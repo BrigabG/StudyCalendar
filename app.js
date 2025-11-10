@@ -40,7 +40,7 @@ function setupFirebaseListeners() {
     database.ref('subjects').on('value', (snapshot) => {
         subjects = snapshot.val() || {};
         updateSubjectsList();
-        updateSubjectFilters();
+        // updateSubjectFilters(); // Ya no se necesitan filtros
         updateSubjectSelectors();
         if (calendar) calendar.refetchEvents();
     });
@@ -83,19 +83,42 @@ function initializeCalendar() {
             
             for (let eventId in events) {
                 const event = events[eventId];
+
+                // Manejar día libre (sin asignatura)
+                if (event.type === 'free') {
+                    calendarEvents.push({
+                        id: eventId,
+                        title: '🌙 Día Libre',
+                        start: event.date,
+                        backgroundColor: '#6c757d',
+                        borderColor: '#495057',
+                        extendedProps: {
+                            type: event.type,
+                            subjectId: null,
+                            completed: false,
+                            notes: event.notes || ''
+                        },
+                        classNames: ['free-day-event']
+                    });
+                    continue;
+                }
+
                 const subject = subjects[event.subjectId];
-                
+
                 if (!subject) continue;
-                
-                const eventColor = event.type === 'exam' 
-                    ? subject.color 
+
+                const eventColor = event.type === 'exam'
+                    ? subject.color
                     : lightenColor(subject.color, 40);
-                
-                let eventTitle = `${event.type === 'exam' ? '📝 ' : '📚 '}${subject.name}`;
+
+                let eventTitle = event.type === 'exam'
+                    ? `📝 ${subject.name.toUpperCase()}`  // MAYÚSCULAS para exámenes
+                    : `📚 ${subject.name}`;
+
                 if (event.completed) {
                     eventTitle += ' ✓';
                 }
-                
+
                 calendarEvents.push({
                     id: eventId,
                     title: eventTitle,
@@ -138,10 +161,55 @@ function initializeCalendar() {
                 info.revert();
                 alert('Error al mover el evento. Inténtalo de nuevo.');
             });
+        },
+        drop: function(info) {
+            // Manejar cuando se arrastra un item externo al calendario
+            const eventType = info.draggedEl.getAttribute('data-event-type');
+            const date = info.dateStr;
+
+            // Para días libres, no necesitamos seleccionar asignatura
+            if (eventType === 'free') {
+                database.ref('events').push({
+                    type: 'free',
+                    date: date,
+                    notes: 'Día libre',
+                    completed: false,
+                    subjectId: null
+                }).then(() => {
+                    console.log(`✅ Día libre agregado: ${date}`);
+                }).catch((error) => {
+                    console.error('❌ Error al agregar día libre:', error);
+                    alert('Error al agregar día libre. Inténtalo de nuevo.');
+                });
+                return;
+            }
+
+            // Para días de estudio y exámenes, abrir el modal de selección
+            openEventModal(null, date, eventType);
         }
     });
     
     calendar.render();
+
+    // Hacer los items externos arrastrables
+    setupDraggableItems();
+}
+
+// ===== SETUP DRAGGABLE ITEMS =====
+function setupDraggableItems() {
+    const draggableItems = document.querySelectorAll('.draggable-item');
+
+    draggableItems.forEach(item => {
+        new FullCalendar.Draggable(item, {
+            itemSelector: '.draggable-item',
+            eventData: function(eventEl) {
+                return {
+                    title: eventEl.innerText,
+                    create: true
+                };
+            }
+        });
+    });
 }
 
 // ===== NAVIGATION =====
@@ -218,6 +286,16 @@ function setupEventListeners() {
         document.getElementById('eventModal').classList.remove('active');
     });
     document.getElementById('deleteEvent').addEventListener('click', handleEventDelete);
+
+    // Ocultar selector de asignatura cuando el tipo es "Día Libre"
+    document.getElementById('eventType').addEventListener('change', (e) => {
+        const subjectGroup = document.getElementById('eventSubject').closest('.form-group');
+        if (e.target.value === 'free') {
+            subjectGroup.style.display = 'none';
+        } else {
+            subjectGroup.style.display = 'block';
+        }
+    });
     
     document.getElementById('autoAssignForm').addEventListener('submit', handleAutoAssign);
     document.getElementById('cancelAutoAssign').addEventListener('click', () => {
@@ -295,15 +373,18 @@ function openEventModal(calendarEvent = null, dateStr = null, eventType = 'study
     form.reset();
     document.getElementById('deleteEvent').style.display = calendarEvent ? 'block' : 'none';
     document.getElementById('completedGroup').style.display = calendarEvent ? 'block' : 'none';
-    
+
+    let selectedEventType = eventType;
+
     if (calendarEvent) {
         document.getElementById('eventModalTitle').textContent = 'Editar Evento';
         const event = events[calendarEvent.id];
-        document.getElementById('eventSubject').value = event.subjectId;
+        document.getElementById('eventSubject').value = event.subjectId || '';
         document.getElementById('eventType').value = event.type;
         document.getElementById('eventDate').value = event.date;
         document.getElementById('eventNotes').value = event.notes || '';
         document.getElementById('eventCompleted').checked = event.completed || false;
+        selectedEventType = event.type;
     } else {
         document.getElementById('eventModalTitle').textContent = 'Agregar Evento';
         if (dateStr) {
@@ -311,37 +392,52 @@ function openEventModal(calendarEvent = null, dateStr = null, eventType = 'study
         }
         document.getElementById('eventType').value = eventType;
     }
-    
+
+    // Ocultar/mostrar selector de asignatura según el tipo
+    const subjectGroup = document.getElementById('eventSubject').closest('.form-group');
+    if (selectedEventType === 'free') {
+        subjectGroup.style.display = 'none';
+    } else {
+        subjectGroup.style.display = 'block';
+    }
+
     modal.classList.add('active');
 }
 
 function handleEventSubmit(e) {
     e.preventDefault();
-    
+
     const subjectId = document.getElementById('eventSubject').value;
     const type = document.getElementById('eventType').value;
     const date = document.getElementById('eventDate').value;
     const notes = document.getElementById('eventNotes').value.trim();
     const completed = document.getElementById('eventCompleted').checked;
-    
-    if (!subjectId) {
+
+    // Para días libres, no se requiere asignatura
+    if (type !== 'free' && !subjectId) {
         alert('Por favor selecciona una asignatura');
         return;
     }
-    
-    const eventData = { subjectId, type, date, notes, completed };
-    
+
+    const eventData = {
+        subjectId: type === 'free' ? null : subjectId,
+        type,
+        date,
+        notes,
+        completed
+    };
+
     if (editingEventId) {
         database.ref(`events/${editingEventId}`).update(eventData);
     } else {
         database.ref('events').push(eventData);
     }
-    
+
     // Actualizar estadísticas si se completó un día de estudio
     if (completed && type === 'study') {
         updateUserStats(date);
     }
-    
+
     document.getElementById('eventModal').classList.remove('active');
     editingEventId = null;
 }

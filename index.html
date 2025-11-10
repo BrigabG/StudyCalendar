@@ -9,7 +9,7 @@
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=2">
     
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
@@ -64,11 +64,19 @@
                 </div>
             </div>
 
-            <!-- Filter -->
-            <div class="filter-section">
-                <label>Filtrar por asignatura:</label>
-                <div id="subjectFilters" class="subject-filters">
-                    <!-- Se llenarán dinámicamente -->
+            <!-- Drag Items -->
+            <div class="drag-items-section">
+                <label>🎯 Arrastra para agregar al calendario:</label>
+                <div class="drag-items-container">
+                    <div class="draggable-item" data-event-type="study">
+                        📚 Día de Estudio
+                    </div>
+                    <div class="draggable-item" data-event-type="exam">
+                        📝 Día de Examen
+                    </div>
+                    <div class="draggable-item" data-event-type="free" style="background: #6c757d; border-color: #6c757d;">
+                        🌙 Día Libre
+                    </div>
                 </div>
             </div>
 
@@ -188,6 +196,7 @@
                     <select id="eventType" required>
                         <option value="study">Día de Estudio</option>
                         <option value="exam">Examen</option>
+                        <option value="free">Día Libre</option>
                     </select>
                 </div>
                 
@@ -271,6 +280,6 @@
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
     
     <!-- Custom JS -->
-    <script src="app.js?v=3"></script>
+    <script src="app.js?v=6"></script>
 </body>
 </html>
