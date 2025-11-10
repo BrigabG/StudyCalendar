@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyCalendar - Organizador de Estudios</title>
+    
+    <!-- FullCalendar CSS -->
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="container">
+            <h1>📚 StudyCalendar</h1>
+            <div class="user-selector">
+                <label for="currentUser">Usuario:</label>
+                <select id="currentUser">
+                    <option value="user1">Usuario 1</option>
+                    <option value="user2">Usuario 2</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation -->
+    <nav class="main-nav">
+        <div class="container">
+            <button class="nav-btn active" data-view="calendar">📅 Calendario</button>
+            <button class="nav-btn" data-view="subjects">📖 Asignaturas</button>
+            <button class="nav-btn" data-view="stats">📊 Estadísticas</button>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="container">
+        
+        <!-- Calendar View -->
+        <section id="calendar-view" class="view active">
+            <div class="calendar-controls">
+                <div class="view-controls">
+                    <button class="btn-secondary" id="prevPeriod">← Anterior</button>
+                    <button class="btn-secondary" id="today">Hoy</button>
+                    <button class="btn-secondary" id="nextPeriod">Siguiente →</button>
+                </div>
+                <div class="calendar-type">
+                    <select id="calendarType">
+                        <option value="dayGridMonth">Vista Mensual</option>
+                        <option value="timeGridWeek">Vista Semanal</option>
+                        <option value="dayGridYear">Vista Semestral</option>
+                    </select>
+                </div>
+                <div class="action-buttons">
+                    <button class="btn-primary" id="addStudyDay">+ Día de Estudio</button>
+                    <button class="btn-exam" id="addExam">+ Examen</button>
+                    <button class="btn-auto" id="autoAssign">✨ Auto-asignar</button>
+                </div>
+            </div>
+
+            <!-- Filter -->
+            <div class="filter-section">
+                <label>Filtrar por asignatura:</label>
+                <div id="subjectFilters" class="subject-filters">
+                    <!-- Se llenarán dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Calendar -->
+            <div id="calendar"></div>
+        </section>
+
+        <!-- Subjects View -->
+        <section id="subjects-view" class="view">
+            <div class="section-header">
+                <h2>Gestión de Asignaturas</h2>
+                <button class="btn-primary" id="addSubject">+ Nueva Asignatura</button>
+            </div>
+            
+            <div id="subjectsList" class="subjects-grid">
+                <!-- Se llenarán dinámicamente -->
+            </div>
+        </section>
+
+        <!-- Stats View -->
+        <section id="stats-view" class="view">
+            <h2>Estadísticas Personales</h2>
+            
+            <div class="stats-container">
+                <div class="stat-card">
+                    <h3>🔥 Racha Actual</h3>
+                    <div class="stat-value" id="currentStreak">0 días</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>🏆 Mejor Racha</h3>
+                    <div class="stat-value" id="bestStreak">0 días</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>📅 Días Estudiados</h3>
+                    <div class="stat-value" id="totalDays">0 días</div>
+                </div>
+                
+                <div class="stat-card">
+                    <h3>📝 Próximos Exámenes</h3>
+                    <div class="stat-value" id="upcomingExams">0</div>
+                </div>
+            </div>
+
+            <div class="subjects-stats">
+                <h3>Distribución por Asignatura</h3>
+                <div id="subjectsDistribution">
+                    <!-- Se llenará dinámicamente -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal: Add/Edit Subject -->
+    <div id="subjectModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="subjectModalTitle">Nueva Asignatura</h2>
+            
+            <form id="subjectForm">
+                <div class="form-group">
+                    <label>Nombre de la asignatura *</label>
+                    <input type="text" id="subjectName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Color *</label>
+                    <input type="color" id="subjectColor" value="#d4a574">
+                </div>
+                
+                <div class="form-group">
+                    <label>Prioridad *</label>
+                    <select id="subjectPriority">
+                        <option value="1">Baja</option>
+                        <option value="2">Media</option>
+                        <option value="3" selected>Alta</option>
+                        <option value="4">Muy Alta</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Fecha del Examen</label>
+                    <input type="date" id="subjectExamDate">
+                </div>
+                
+                <div class="form-group">
+                    <label>Documentación (Links de Drive, separados por coma)</label>
+                    <textarea id="subjectDocs" rows="3" placeholder="https://drive.google.com/..., https://drive.google.com/..."></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Guardar</button>
+                    <button type="button" class="btn-secondary" id="cancelSubject">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Add Study Day/Exam -->
+    <div id="eventModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="eventModalTitle">Agregar Evento</h2>
+            
+            <form id="eventForm">
+                <div class="form-group">
+                    <label>Asignatura *</label>
+                    <select id="eventSubject" required>
+                        <option value="">Selecciona una asignatura</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Tipo *</label>
+                    <select id="eventType" required>
+                        <option value="study">Día de Estudio</option>
+                        <option value="exam">Examen</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Fecha *</label>
+                    <input type="date" id="eventDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Notas</label>
+                    <textarea id="eventNotes" rows="2" placeholder="Ej: Capítulo 3, páginas 45-60"></textarea>
+                </div>
+                
+                <div class="form-group" id="completedGroup" style="display: none;">
+                    <label>
+                        <input type="checkbox" id="eventCompleted">
+                        Marcar como completado ✓
+                    </label>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Guardar</button>
+                    <button type="button" class="btn-secondary" id="cancelEvent">Cancelar</button>
+                    <button type="button" class="btn-danger" id="deleteEvent" style="display: none;">Eliminar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Auto-assign -->
+    <div id="autoAssignModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Auto-asignar Días de Estudio</h2>
+            
+            <form id="autoAssignForm">
+                <div class="form-group">
+                    <label>Asignatura *</label>
+                    <select id="autoSubject" required>
+                        <option value="">Selecciona una asignatura</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Fecha de inicio *</label>
+                    <input type="date" id="autoStartDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Fecha de fin (Examen) *</label>
+                    <input type="date" id="autoEndDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Días a excluir (opcional)</label>
+                    <div class="days-selector">
+                        <label><input type="checkbox" value="0"> Domingo</label>
+                        <label><input type="checkbox" value="1"> Lunes</label>
+                        <label><input type="checkbox" value="2"> Martes</label>
+                        <label><input type="checkbox" value="3"> Miércoles</label>
+                        <label><input type="checkbox" value="4"> Jueves</label>
+                        <label><input type="checkbox" value="5"> Viernes</label>
+                        <label><input type="checkbox" value="6"> Sábado</label>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Intensidad basada en prioridad</label>
+                    <p class="help-text">Se asignarán más días según la prioridad de la asignatura</p>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary">Generar</button>
+                    <button type="button" class="btn-secondary" id="cancelAutoAssign">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- FullCalendar JS -->
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    
+    <!-- Custom JS -->
+    <script src="app.js"></script>
+</body>
+</html>
