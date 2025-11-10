@@ -76,6 +76,8 @@ function initializeCalendar() {
         locale: 'es',
         headerToolbar: false,
         height: 'auto',
+        editable: true, // Habilitar arrastrar y soltar
+        droppable: true,
         events: function(info, successCallback) {
             const calendarEvents = [];
             
@@ -120,6 +122,22 @@ function initializeCalendar() {
         },
         dateClick: function(info) {
             openEventModal(null, info.dateStr);
+        },
+        eventDrop: function(info) {
+            // Actualizar la fecha del evento en Firebase cuando se arrastra
+            const newDate = info.event.startStr;
+            const eventId = info.event.id;
+
+            database.ref(`events/${eventId}`).update({
+                date: newDate
+            }).then(() => {
+                console.log(`✅ Evento movido a ${newDate}`);
+            }).catch((error) => {
+                console.error('❌ Error al mover evento:', error);
+                // Revertir el cambio si hay error
+                info.revert();
+                alert('Error al mover el evento. Inténtalo de nuevo.');
+            });
         }
     });
     
