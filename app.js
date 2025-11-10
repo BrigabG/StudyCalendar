@@ -146,6 +146,28 @@ function initializeCalendar() {
         dateClick: function(info) {
             openEventModal(null, info.dateStr);
         },
+        eventDragStart: function(info) {
+            // Mostrar tachito cuando se empieza a arrastrar un evento
+            showTrashBin();
+        },
+        eventDragStop: function(info) {
+            // Ocultar tachito y verificar si se soltó en el tachito
+            const trashBin = document.getElementById('trashBin');
+            const mouseEvent = info.jsEvent;
+
+            if (isOverTrashBin(mouseEvent.clientX, mouseEvent.clientY)) {
+                // Eliminar el evento de Firebase
+                const eventId = info.event.id;
+                database.ref(`events/${eventId}`).remove().then(() => {
+                    console.log('✅ Evento eliminado');
+                }).catch((error) => {
+                    console.error('❌ Error al eliminar evento:', error);
+                    alert('Error al eliminar el evento. Inténtalo de nuevo.');
+                });
+            }
+
+            hideTrashBin();
+        },
         eventDrop: function(info) {
             // Actualizar la fecha del evento en Firebase cuando se arrastra
             const newDate = info.event.startStr;
@@ -161,6 +183,11 @@ function initializeCalendar() {
                 info.revert();
                 alert('Error al mover el evento. Inténtalo de nuevo.');
             });
+        },
+        eventReceive: function(info) {
+            // Prevenir que se creen eventos sin datos
+            // Esto NO debería pasar, pero por si acaso...
+            info.event.remove();
         },
         drop: function(info) {
             // Manejar cuando se arrastra un item externo al calendario
@@ -210,6 +237,42 @@ function setupDraggableItems() {
             }
         });
     });
+}
+
+// ===== TRASH BIN FUNCTIONS =====
+function showTrashBin() {
+    const trashBin = document.getElementById('trashBin');
+    trashBin.classList.add('active');
+
+    // Agregar listeners para el hover effect
+    document.addEventListener('dragover', handleTrashBinDragOver);
+}
+
+function hideTrashBin() {
+    const trashBin = document.getElementById('trashBin');
+    trashBin.classList.remove('active', 'drag-over');
+
+    // Remover listeners
+    document.removeEventListener('dragover', handleTrashBinDragOver);
+}
+
+function handleTrashBinDragOver(e) {
+    const trashBin = document.getElementById('trashBin');
+    if (isOverTrashBin(e.clientX, e.clientY)) {
+        trashBin.classList.add('drag-over');
+    } else {
+        trashBin.classList.remove('drag-over');
+    }
+}
+
+function isOverTrashBin(x, y) {
+    const trashBin = document.getElementById('trashBin');
+    const rect = trashBin.getBoundingClientRect();
+
+    return x >= rect.left &&
+           x <= rect.right &&
+           y >= rect.top &&
+           y <= rect.bottom;
 }
 
 // ===== NAVIGATION =====
